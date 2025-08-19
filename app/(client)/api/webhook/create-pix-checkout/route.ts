@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
-// Configuração do Mercado Pago
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN!,
-  options: { timeout: 10000 }
-});
 
 // Removemos a variável 'preference' que não era usada
 
