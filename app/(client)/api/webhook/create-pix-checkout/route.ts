@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 
@@ -33,12 +34,6 @@ interface RequestBody {
 
 export async function POST(req: NextRequest) {
   console.log("🚀 API /api/webhook/create-pix-checkout chamada!");
-  
-  // Debug das variáveis de ambiente
-  console.log("🔑 Variáveis de ambiente:");
-  console.log("MP_ACCESS_TOKEN existe:", !!process.env.MP_ACCESS_TOKEN);
-  console.log("MP_ACCESS_TOKEN primeiros chars:", process.env.MP_ACCESS_TOKEN?.substring(0, 10) + "...");
-  console.log("NEXT_PUBLIC_BASE_URL:", process.env.NEXT_PUBLIC_BASE_URL);
   
   try {
     // Parse do corpo da requisição
@@ -77,6 +72,10 @@ export async function POST(req: NextRequest) {
     // Configuração do cliente Mercado Pago
     const client = new MercadoPagoConfig({
       accessToken: process.env.MP_ACCESS_TOKEN,
+      options: {
+        timeout: 5000,
+        idempotencyKey: metadata.orderNumber
+      }
     });
 
     const preference = new Preference(client);
@@ -86,14 +85,21 @@ export async function POST(req: NextRequest) {
       const quantity = item.quantity || 1;
       const price = Number(item.product.price);
 
+      // Validar preço
+      if (isNaN(price) || price <= 0) {
+        throw new Error(`Preço inválido para o produto ${item.product.name}`);
+      }
+
       console.log(`📦 Item: ${item.product.name} - Qty: ${quantity} - Price: ${price}`);
 
       return {
-        id: item.product._id, // Adiciona o campo 'id' exigido pelo Mercado Pago
+        id: item.product._id,
         title: item.product.name,
         quantity: quantity,
         unit_price: price,
         currency_id: "BRL",
+        category_id: "clothing",
+        description: item.product.intro || "Produto de vestuário"
       };
     });
 
@@ -112,16 +118,27 @@ export async function POST(req: NextRequest) {
       payment_methods: {
         excluded_payment_types: [
           { id: "debit_card" },
+          { id: "credit_card" }
         ],
         default_payment_method_id: "pix",
+        installments: 1
       },
       back_urls: {
-        success: `${baseUrl}/success?order=${metadata.orderNumber}`,
-        failure: `${baseUrl}/cart`,
-        pending: `${baseUrl}/cart`,
+        success: `${baseUrl}/success?order=${metadata.orderNumber}&source=mercadopago`,
+        failure: `${baseUrl}/cart?error=payment_failed`,
+        pending: `${baseUrl}/cart?status=pending`,
       },
       auto_return: "approved" as const,
-      metadata: metadata,
+      external_reference: metadata.orderNumber,
+      notification_url: `${baseUrl}/api/webhook/mercadopago`,
+      metadata: {
+        ...metadata,
+        integration: "pix_checkout",
+        timestamp: new Date().toISOString()
+      },
+      expires: true,
+      expiration_date_from: new Date().toISOString(),
+      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
     };
 
     console.log("🔧 Criando preferência:", JSON.stringify(preferenceData, null, 2));
@@ -138,9 +155,11 @@ export async function POST(req: NextRequest) {
     // Retornar URLs de checkout
     return NextResponse.json({
       success: true,
+      preference_id: response.id,
       init_point: response.init_point,
       sandbox_init_point: response.sandbox_init_point,
-      id: response.id 
+      qr_code: response.sandbox_init_point, // Para desenvolvimento
+      expires_at: preferenceData.expiration_date_to
     });
 
   } catch (error) {
@@ -148,20 +167,31 @@ export async function POST(req: NextRequest) {
     
     // Tratamento específico do erro
     let errorMessage = "Erro desconhecido";
+    let statusCode = 500;
     
     if (error instanceof Error) {
       errorMessage = error.message;
       console.error("📝 Mensagem:", error.message);
       console.error("📋 Stack:", error.stack);
+      
+      // Tratar erros específicos do Mercado Pago
+      if (errorMessage.includes("401")) {
+        errorMessage = "Token de acesso inválido";
+        statusCode = 401;
+      } else if (errorMessage.includes("400")) {
+        errorMessage = "Dados inválidos enviados ao Mercado Pago";
+        statusCode = 400;
+      }
     }
 
     return NextResponse.json(
       { 
         error: "Erro criando preferência PIX", 
         details: errorMessage,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        suggestion: "Verifique as credenciais do Mercado Pago e os dados enviados"
       }, 
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }
@@ -181,6 +211,7 @@ export async function GET() {
       hasToken,
       tokenStart: tokenStart + "...",
       baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "não configurada"
-    }
+    },
+    environment: process.env.NODE_ENV || "development"
   });
 }
