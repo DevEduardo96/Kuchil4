@@ -218,48 +218,6 @@ const CartPage = () => {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast.error(`Erro ao processar checkout PIX: ${errorMessage}`, { id: "pix-checkout" });
       
-    } finally {tent-type"));
-
-      // Primeiro pegar a resposta como texto para debug
-      const responseText = await res.text();
-      console.log("Resposta bruta:", responseText);
-
-      // Verificar se recebeu HTML (erro 404/500)
-      if (responseText.startsWith('<!DOCTYPE') || responseText.startsWith('<html') || responseText.startsWith('<meta')) {
-        console.error("❌ Recebeu HTML em vez de JSON - Rota não encontrada ou erro no servidor");
-        toast.error("Erro: Rota da API não encontrada. Verifique se /api/create-pix-checkout existe.");
-        return;
-      }
-
-      // Tentar fazer parse do JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("❌ Erro ao fazer parse do JSON:", parseError);
-        console.error("Conteúdo recebido:", responseText.substring(0, 200));
-        toast.error("Erro: Resposta inválida do servidor");
-        return;
-      }
-
-      if (!res.ok) {
-        console.error("❌ Erro na resposta da API:", data);
-        toast.error(`Erro: ${data.error || data.details || 'Erro desconhecido'}`);
-        return;
-      }
-
-      console.log("✅ Resposta do checkout PIX:", data);
-
-      if (data?.init_point) {
-        console.log("✅ Redirecionando para:", data.init_point);
-        window.location.href = data.init_point;
-      } else {
-        console.error("❌ init_point não encontrado na resposta:", data);
-        toast.error("Erro: URL de checkout não recebida");
-      }
-    } catch (error) {
-      console.error("❌ Erro criando checkout Pix:", error);
-      toast.error(`Erro ao processar checkout PIX: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
