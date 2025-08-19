@@ -1,0 +1,76 @@
+# Prompt para Correção de Erros - Integração Mercado Pago PIX
+
+Você é um especialista em integração com APIs de pagamento, especificamente Mercado Pago. Analise os seguintes erros e forneça uma solução completa e funcional:
+
+## Erros Relatados:
+```
+Error: 💡 Sugestão: "Verifique os dados enviados e tente novamente"
+Error: 📋 Detalhes do erro: "Erro interno do servidor"  
+Error: ❌ Erro na resposta da API: {}
+```
+
+## Contexto:
+- Site Next.js rodando em localhost:3000
+- Tentativa de gerar QR Code PIX via API do Mercado Pago
+- Erros ocorrem na função `handlePixCheckout`
+- Stack trace aponta para problemas nos chunks do Next.js
+
+## Código Atual para Análise:
+[COLE AQUI SEU CÓDIGO ATUAL - função handlePixCheckout, API route, configurações]
+
+## O que preciso que você faça:
+
+1. **DIAGNÓSTICO COMPLETO:**
+   - Identifique a causa raiz de cada erro
+   - Analise possíveis problemas de configuração
+   - Verifique estrutura de dados enviados
+
+2. **CORREÇÃO DO CÓDIGO:**
+   - Corrija a função `handlePixCheckout` no frontend
+   - Corrija/crie a API route do backend (/api/mercadopago)
+   - Implemente validação robusta de dados
+   - Adicione tratamento de erro adequado
+
+3. **IMPLEMENTAÇÃO COMPLETA:**
+   - Código frontend (React/Next.js)
+   - Código backend (API route)
+   - Configuração de credenciais
+   - Validação de dados obrigatórios
+
+4. **ESTRUTURA DE DADOS CORRETA:**
+   - Payload correto para criação de pagamento PIX
+   - Validações necessárias
+   - Campos obrigatórios do Mercado Pago
+
+5. **DEBUGGING E LOGS:**
+   - Sistema de logs detalhado
+   - Captura de erros específicos
+   - Console.log estratégico para debug
+
+6. **CHECKLIST DE VERIFICAÇÃO:**
+   - Lista de itens para conferir antes de testar
+   - Configurações essenciais
+   - Variáveis de ambiente necessárias
+
+## Requisitos Específicos:
+- Next.js 13+ (App Router ou Pages Router - especifique qual uso)
+- Integração com Mercado Pago SDK mais recente
+- Ambiente de sandbox para testes
+- Tratamento de erro user-friendly
+- Resposta deve incluir QR Code base64 e PIX copia-e-cola
+
+## Formato da Resposta:
+Forneça a solução em blocos de código organizados, com:
+- ✅ Explicação do problema
+- 🔧 Código corrigido
+- 📋 Instruções de implementação
+- 🚀 Como testar
+
+## Variáveis que tenho disponíveis:
+- MERCADO_PAGO_ACCESS_TOKEN (sandbox)
+- MERCADO_PAGO_PUBLIC_KEY (sandbox)
+- [ADICIONE OUTRAS VARIÁVEIS DISPONÍVEIS]
+
+---
+
+**IMPORTANTE:** Preciso de uma solução que funcione 100% e seja production-ready, com todos os tratamentos de erro necessários.
