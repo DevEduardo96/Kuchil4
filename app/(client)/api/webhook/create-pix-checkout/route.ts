@@ -140,7 +140,6 @@ export async function POST(req: NextRequest) {
       marketplace: "none",
       marketplace_fee: 0,
       additional_info: "",
-      notification_url: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/api/webhook/mercadopago`,
       statement_descriptor: "LOJA_ONLINE"
     };
 
@@ -189,13 +188,11 @@ export async function POST(req: NextRequest) {
       preference_id: response.id,
       init_point: response.init_point,
       sandbox_init_point: response.sandbox_init_point,
-      qr_code: response.qr_code,
-      qr_code_base64: response.qr_code_base64,
-      ticket_url: response.ticket_url,
+      // qr_code: response.qr_code, // Removed because PreferenceResponse does not have qr_code
       order_number: metadata.orderNumber,
       total_amount: totalAmount,
       currency: "BRL",
-      expires_at: preferenceData.expiration_date_to
+      // expires_at: preferenceData.expiration_date_to // Removed because preferenceData does not have expiration_date_to
     };
 
     console.log("🎉 Checkout PIX criado com sucesso!");

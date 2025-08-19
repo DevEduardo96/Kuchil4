@@ -148,7 +148,7 @@ const CartPage = () => {
           name: product.name,
           price: Number(product.price),
           intro: product.intro || product.description,
-          category: product.category,
+          // category: product.category, // Removed because 'category' does not exist on Product
         },
         quantity: getItemCount(product._id)
       }));

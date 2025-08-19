@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
           payment_type_id: paymentData.payment_type_id,
           date_approved: paymentData.date_approved,
           transaction_amount: paymentData.transaction_amount,
-          net_received_amount: paymentData.net_received_amount,
+          // net_received_amount: paymentData.net_received_amount, // Removed because property does not exist
         }
       };
 
