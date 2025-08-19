@@ -129,6 +129,17 @@ const CartPage = () => {
         return;
       }
 
+      // Validar se todos os produtos têm preços válidos
+      const invalidProducts = cartProducts.filter(({ product }) => 
+        !product.price || isNaN(Number(product.price)) || Number(product.price) <= 0
+      );
+
+      if (invalidProducts.length > 0) {
+        console.error("❌ Produtos com preços inválidos:", invalidProducts);
+        toast.error("Alguns produtos têm preços inválidos. Remova-os do carrinho.");
+        return;
+      }
+
       const metadata: Metadata = {
         orderNumber: `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         customerName: userName,
@@ -179,8 +190,19 @@ const CartPage = () => {
       }
 
       if (!res.ok) {
-        console.error("❌ Erro na resposta da API:", data);
-        const errorMsg = data.error || data.details || 'Erro desconhecido';
+        console.error("❌ Erro na resposta da API:", {
+          status: res.status,
+          statusText: res.statusText,
+          data: data
+        });
+        
+        // Verificar se o data tem conteúdo
+        const errorMsg = data?.error || data?.details || data?.message || `Erro HTTP ${res.status}`;
+        const suggestion = data?.suggestion || '';
+        
+        console.error("📋 Detalhes do erro:", errorMsg);
+        if (suggestion) console.error("💡 Sugestão:", suggestion);
+        
         toast.error(`Erro PIX: ${errorMsg}`, { id: "pix-checkout" });
         return;
       }

@@ -83,26 +83,30 @@ export async function POST(req: NextRequest) {
 
       // Validar preço
       if (isNaN(price) || price <= 0) {
-        throw new Error(`Preço inválido para o produto ${item.product.name}`);
+        throw new Error(`Preço inválido para o produto ${item.product.name}: ${price}`);
       }
 
       console.log(`📦 Item: ${item.product.name} - Qty: ${quantity} - Price: ${price}`);
 
       return {
         id: item.product._id,
-        title: item.product.name,
+        title: item.product.name.substring(0, 256), // Limite do Mercado Pago
         quantity: quantity,
         unit_price: price,
         currency_id: "BRL",
-        category_id: "clothing",
-        description: item.product.intro || "Produto de vestuário"
+        category_id: "others",
+        description: (item.product.intro || "Produto").substring(0, 256)
       };
     });
 
     console.log("🛒 Itens processados:", mpItems);
 
-    // URLs base
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    // URLs base - usar URL do Replit se disponível
+    const baseUrl = process.env.REPL_SLUG 
+      ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+      : (process.env.NEXT_PUBLIC_BASE_URL || 'http://0.0.0.0:3000');
+
+    console.log("🌐 Base URL:", baseUrl);
 
     // Dados da preferência
     const preferenceData = {
@@ -113,12 +117,12 @@ export async function POST(req: NextRequest) {
       },
       payment_methods: {
         excluded_payment_types: [
-          { id: "debit_card" },
-          { id: "credit_card" }
+          { id: "credit_card" },
+          { id: "debit_card" }
         ],
         excluded_payment_methods: [
-          { id: "master" },
-          { id: "visa" }
+          { id: "visa" },
+          { id: "master" }
         ],
         default_payment_method_id: "pix",
         installments: 1
@@ -132,7 +136,7 @@ export async function POST(req: NextRequest) {
       external_reference: metadata.orderNumber,
       notification_url: `${baseUrl}/api/webhook/mercadopago`,
       expires: false,
-      statement_descriptor: "PIX Checkout"
+      statement_descriptor: "Checkout PIX"
     };
 
     console.log("🔧 Criando preferência:", JSON.stringify(preferenceData, null, 2));
@@ -157,46 +161,71 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("❌ Erro detalhado:", error);
+    console.error("❌ ERRO COMPLETO:", {
+      message: error?.message,
+      stack: error?.stack,
+      cause: error?.cause,
+      response: error?.response,
+      name: error?.name,
+      status: error?.status
+    });
     
     // Tratamento específico do erro
-    let errorMessage = "Erro desconhecido";
+    let errorMessage = "Erro interno do servidor";
     let statusCode = 500;
+    let details = "Erro desconhecido";
     
+    // Verificar erros de validação
     if (error?.message) {
-      errorMessage = error.message;
-      console.error("📝 Mensagem:", error.message);
-      console.error("📋 Stack:", error.stack);
-    }
-
-    // Verificar se é erro do Mercado Pago
-    if (error?.cause || error?.response) {
-      console.error("🔍 Erro do Mercado Pago:", error.cause || error.response);
-      
-      if (error?.cause?.status === 401 || error?.response?.status === 401) {
-        errorMessage = "Token de acesso do Mercado Pago inválido";
-        statusCode = 401;
-      } else if (error?.cause?.status === 400 || error?.response?.status === 400) {
-        errorMessage = "Dados inválidos enviados ao Mercado Pago";
+      if (error.message.includes("Preço inválido")) {
+        errorMessage = "Erro nos dados do produto";
+        details = error.message;
         statusCode = 400;
-      } else if (error?.cause?.message) {
-        errorMessage = error.cause.message;
+      } else if (error.message.includes("Token")) {
+        errorMessage = "Erro de configuração";
+        details = "Credenciais do Mercado Pago inválidas";
+        statusCode = 401;
+      } else {
+        details = error.message;
       }
     }
 
-    return NextResponse.json(
-      { 
-        error: "Erro criando preferência PIX", 
-        details: errorMessage,
-        timestamp: new Date().toISOString(),
-        suggestion: "Verifique as credenciais do Mercado Pago e os dados enviados",
-        debug: process.env.NODE_ENV === 'development' ? {
-          originalError: error?.message,
-          mpError: error?.cause || error?.response
-        } : undefined
-      }, 
-      { status: statusCode }
-    );
+    // Verificar se é erro do Mercado Pago
+    if (error?.cause) {
+      console.error("🔍 Erro específico do Mercado Pago:", error.cause);
+      
+      if (error.cause.status === 401) {
+        errorMessage = "Token de acesso inválido";
+        details = "Verifique o MP_ACCESS_TOKEN";
+        statusCode = 401;
+      } else if (error.cause.status === 400) {
+        errorMessage = "Dados inválidos";
+        details = error.cause.message || "Parâmetros incorretos";
+        statusCode = 400;
+      } else if (error.cause.message) {
+        details = error.cause.message;
+      }
+    }
+
+    const errorResponse = { 
+      error: errorMessage, 
+      details: details,
+      timestamp: new Date().toISOString(),
+      suggestion: statusCode === 401 
+        ? "Verifique as credenciais do Mercado Pago nas variáveis de ambiente"
+        : "Verifique os dados enviados e tente novamente"
+    };
+
+    // Adicionar debug apenas em desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      errorResponse.debug = {
+        originalError: error?.message,
+        mpCause: error?.cause,
+        stack: error?.stack?.split('\n').slice(0, 3)
+      };
+    }
+
+    return NextResponse.json(errorResponse, { status: statusCode });
   }
 }
 
