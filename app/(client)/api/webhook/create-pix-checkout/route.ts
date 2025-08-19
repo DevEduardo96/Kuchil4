@@ -2,12 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
-// Configurar Mercado Pago
+// Configuração do Mercado Pago
 const client = new MercadoPagoConfig({
-  accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || "",
+  accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN!,
   options: {
     timeout: 5000,
-    idempotencyKey: 'abc'
+    idempotencyKey: 'abc',
   }
 });
 
@@ -15,34 +15,35 @@ const preference = new Preference(client);
 
 export async function POST(req: NextRequest) {
   try {
-    console.log("🚀 Iniciando criação de preferência PIX...");
+    console.log("🚀 Iniciando criação de checkout PIX...");
 
-    // Verificar se o token está configurado
+    // Validar token de acesso
     if (!process.env.MERCADO_PAGO_ACCESS_TOKEN) {
       console.error("❌ Token do Mercado Pago não configurado");
       return NextResponse.json(
-        {
-          error: "Configuração de pagamento não encontrada",
-          details: "Token do Mercado Pago não está configurado no servidor",
+        { 
+          success: false, 
+          error: "Token do Mercado Pago não configurado",
           suggestion: "Verifique as variáveis de ambiente"
         },
         { status: 500 }
       );
     }
 
+    // Parse do body
     const body = await req.json();
-    console.log("📊 Dados recebidos:", body);
+    console.log("📋 Dados recebidos:", JSON.stringify(body, null, 2));
 
     const { items, metadata } = body;
 
-    // Validações detalhadas
+    // Validações básicas
     if (!items || !Array.isArray(items) || items.length === 0) {
       console.error("❌ Items inválidos:", items);
       return NextResponse.json(
-        {
-          error: "Dados inválidos",
-          details: "Lista de produtos está vazia ou inválida",
-          suggestion: "Adicione produtos ao carrinho antes de tentar o checkout"
+        { 
+          success: false, 
+          error: "Items são obrigatórios",
+          suggestion: "Envie uma lista válida de produtos"
         },
         { status: 400 }
       );
@@ -51,88 +52,82 @@ export async function POST(req: NextRequest) {
     if (!metadata || !metadata.customerEmail || !metadata.customerName) {
       console.error("❌ Metadata inválidos:", metadata);
       return NextResponse.json(
-        {
-          error: "Dados do cliente incompletos",
-          details: "Email ou nome do cliente não fornecidos",
-          suggestion: "Verifique se você está logado corretamente"
+        { 
+          success: false, 
+          error: "Dados do cliente são obrigatórios",
+          suggestion: "Envie email e nome do cliente"
         },
         { status: 400 }
       );
     }
 
-    // Processar items do carrinho
+    // Preparar items para o Mercado Pago
     const mercadoPagoItems = items.map((item: any) => {
-      const { product, quantity } = item;
-      
-      if (!product.price || isNaN(Number(product.price)) || Number(product.price) <= 0) {
-        throw new Error(`Produto ${product.name} tem preço inválido: ${product.price}`);
+      const product = item.product;
+      const quantity = item.quantity || 1;
+      const unitPrice = Number(product.price);
+
+      if (isNaN(unitPrice) || unitPrice <= 0) {
+        throw new Error(`Preço inválido para o produto ${product.name}: ${product.price}`);
       }
 
       return {
-        id: product._id || product.id,
+        id: product._id,
         title: product.name || "Produto sem nome",
         description: product.intro || product.description || "Produto da loja",
-        category_id: product.category || "general",
-        quantity: Number(quantity) || 1,
+        quantity: quantity,
+        unit_price: unitPrice,
         currency_id: "BRL",
-        unit_price: Number(product.price),
+        category_id: product.category || "others"
       };
     });
 
-    console.log("📦 Items processados para Mercado Pago:", mercadoPagoItems);
+    console.log("🛒 Items processados:", mercadoPagoItems);
 
     // Calcular total
-    const totalAmount = mercadoPagoItems.reduce(
-      (total, item) => total + (item.unit_price * item.quantity), 
-      0
-    );
+    const totalAmount = mercadoPagoItems.reduce((sum: number, item: any) => {
+      return sum + (item.unit_price * item.quantity);
+    }, 0);
 
-    console.log("💰 Valor total calculado:", totalAmount);
+    console.log("💰 Total calculado:", totalAmount);
 
-    // Verificar se o total é válido
-    if (totalAmount <= 0) {
-      return NextResponse.json(
-        {
-          error: "Valor inválido",
-          details: "O valor total da compra deve ser maior que zero",
-          suggestion: "Verifique os preços dos produtos no carrinho"
-        },
-        { status: 400 }
-      );
-    }
-
-    // Criar dados da preferência
+    // Configurar preferência do Mercado Pago
     const preferenceData = {
       items: mercadoPagoItems,
       payer: {
         name: metadata.customerName,
         email: metadata.customerEmail,
       },
-      back_urls: {
-        success: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/success`,
-        failure: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/cart`,
-        pending: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/cart`,
-      },
-      auto_return: "approved" as const,
       payment_methods: {
+        excluded_payment_types: [
+          { id: "credit_card" },
+          { id: "debit_card" },
+          { id: "ticket" }
+        ],
         excluded_payment_methods: [],
-        excluded_payment_types: [],
-        installments: 1,
+        default_payment_method_id: "pix",
+        installments: 1
       },
-      notification_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/webhook/mercadopago`,
-      statement_descriptor: "LOJA ONLINE",
+      back_urls: {
+        success: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id=${metadata.orderNumber}`,
+        failure: `${process.env.NEXT_PUBLIC_BASE_URL}/cart?error=payment_failed`,
+        pending: `${process.env.NEXT_PUBLIC_BASE_URL}/cart?status=pending`
+      },
+      auto_return: "approved",
       external_reference: metadata.orderNumber,
-      expires: false,
-      binary_mode: false,
+      notification_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook/mercadopago`,
       metadata: {
-        customer_name: metadata.customerName,
-        customer_email: metadata.customerEmail,
-        clerk_user_id: metadata.clerkUserId,
         order_number: metadata.orderNumber,
-      }
+        customer_email: metadata.customerEmail,
+        customer_name: metadata.customerName,
+        clerk_user_id: metadata.clerkUserId
+      },
+      expires: true,
+      expiration_date_from: new Date().toISOString(),
+      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
     };
 
-    console.log("🎯 Dados da preferência:", JSON.stringify(preferenceData, null, 2));
+    console.log("⚙️ Configuração da preferência:", JSON.stringify(preferenceData, null, 2));
 
     // Criar preferência no Mercado Pago
     const response = await preference.create({ body: preferenceData });
@@ -140,37 +135,24 @@ export async function POST(req: NextRequest) {
     console.log("✅ Resposta do Mercado Pago:", {
       id: response.id,
       init_point: response.init_point,
-      sandbox_init_point: response.sandbox_init_point,
-      status: response.response?.status
+      sandbox_init_point: response.sandbox_init_point
     });
 
+    // Verificar se a resposta é válida
     if (!response.id) {
-      console.error("❌ Resposta do Mercado Pago sem ID:", response);
+      console.error("❌ Resposta inválida do Mercado Pago:", response);
       return NextResponse.json(
-        {
-          error: "Erro na criação do pagamento",
-          details: "Mercado Pago não retornou um ID de preferência válido",
-          suggestion: "Tente novamente em alguns instantes"
+        { 
+          success: false, 
+          error: "Falha na criação da preferência",
+          suggestion: "Verifique os dados enviados"
         },
         { status: 500 }
       );
     }
 
-    // Verificar se temos as URLs necessárias
-    if (!response.init_point && !response.sandbox_init_point) {
-      console.error("❌ URLs de checkout não encontradas:", response);
-      return NextResponse.json(
-        {
-          error: "URLs de checkout não disponíveis",
-          details: "Mercado Pago não retornou as URLs de redirecionamento",
-          suggestion: "Verifique a configuração da conta no Mercado Pago"
-        },
-        { status: 500 }
-      );
-    }
-
-    // Retornar sucesso
-    return NextResponse.json({
+    // Retornar resposta de sucesso
+    const successResponse = {
       success: true,
       preference_id: response.id,
       init_point: response.init_point,
@@ -178,62 +160,53 @@ export async function POST(req: NextRequest) {
       qr_code: response.qr_code,
       qr_code_base64: response.qr_code_base64,
       ticket_url: response.ticket_url,
-      metadata: {
-        total_amount: totalAmount,
-        items_count: mercadoPagoItems.length,
-        order_number: metadata.orderNumber
-      }
-    });
+      order_number: metadata.orderNumber,
+      total_amount: totalAmount,
+      currency: "BRL",
+      expires_at: preferenceData.expiration_date_to
+    };
 
-  } catch (error: any) {
-    console.error("❌ Erro na API do Mercado Pago:", error);
+    console.log("🎉 Checkout PIX criado com sucesso!");
+    return NextResponse.json(successResponse, { status: 200 });
+
+  } catch (error) {
+    console.error("❌ Erro ao criar checkout PIX:", error);
     
-    // Tratar diferentes tipos de erro
-    if (error.message?.includes("preço inválido")) {
-      return NextResponse.json(
-        {
-          error: "Produto com preço inválido",
-          details: error.message,
-          suggestion: "Remova produtos com problemas do carrinho"
-        },
-        { status: 400 }
-      );
+    let errorMessage = "Erro interno do servidor";
+    let suggestion = "Tente novamente ou entre em contato com o suporte";
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      if (error.message.includes("unauthorized")) {
+        suggestion = "Verifique suas credenciais do Mercado Pago";
+      } else if (error.message.includes("invalid")) {
+        suggestion = "Verifique os dados enviados";
+      } else if (error.message.includes("network") || error.message.includes("timeout")) {
+        suggestion = "Problema de conexão. Tente novamente em alguns instantes";
+      }
     }
 
-    if (error.status === 401) {
-      return NextResponse.json(
-        {
-          error: "Erro de autenticação",
-          details: "Token do Mercado Pago inválido ou expirado",
-          suggestion: "Verifique as credenciais do Mercado Pago"
-        },
-        { status: 401 }
-      );
-    }
-
-    if (error.status === 400) {
-      return NextResponse.json(
-        {
-          error: "Dados inválidos",
-          details: error.message || "Dados enviados são inválidos",
-          suggestion: "Verifique os dados do carrinho e tente novamente"
-        },
-        { status: 400 }
-      );
-    }
-
-    // Erro genérico
     return NextResponse.json(
-      {
-        error: "Erro interno do servidor",
-        details: error.message || "Erro desconhecido ao processar pagamento",
-        suggestion: "Tente novamente em alguns instantes",
-        debug_info: process.env.NODE_ENV === 'development' ? {
-          error_type: error.constructor.name,
-          error_stack: error.stack?.substring(0, 500)
-        } : undefined
+      { 
+        success: false, 
+        error: errorMessage,
+        suggestion,
+        details: process.env.NODE_ENV === 'development' ? error : undefined
       },
       { status: 500 }
     );
   }
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { 
+      message: "API do Mercado Pago PIX funcionando!",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      has_token: !!process.env.MERCADO_PAGO_ACCESS_TOKEN
+    },
+    { status: 200 }
+  );
 }
