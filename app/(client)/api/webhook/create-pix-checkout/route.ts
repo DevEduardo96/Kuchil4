@@ -6,8 +6,8 @@ import { MercadoPagoConfig, Preference } from "mercadopago";
 const client = new MercadoPagoConfig({
   accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN!,
   options: {
-    timeout: 5000,
-    idempotencyKey: 'abc',
+    timeout: 10000, // Aumentar timeout
+    // Remover idempotencyKey fixo para evitar conflitos
   }
 });
 
@@ -93,6 +93,9 @@ export async function POST(req: NextRequest) {
 
     console.log("💰 Total calculado:", totalAmount);
 
+    // Criar um ID único para cada preferência
+    const uniqueReference = `${metadata.orderNumber}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
     // Configurar preferência do Mercado Pago
     const preferenceData = {
       items: mercadoPagoItems,
@@ -111,22 +114,34 @@ export async function POST(req: NextRequest) {
         installments: 1
       },
       back_urls: {
-        success: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/success?session_id=${metadata.orderNumber}`,
+        success: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/success?session_id=${uniqueReference}`,
         failure: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/cart?error=payment_failed`,
         pending: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/cart?status=pending`
       },
       auto_return: "approved",
-      external_reference: metadata.orderNumber,
+      external_reference: uniqueReference,
       notification_url: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/api/webhook/mercadopago`,
       metadata: {
         order_number: metadata.orderNumber,
         customer_email: metadata.customerEmail,
         customer_name: metadata.customerName,
-        clerk_user_id: metadata.clerkUserId
+        clerk_user_id: metadata.clerkUserId,
+        unique_reference: uniqueReference
       },
-      expires: true,
-      expiration_date_from: new Date().toISOString(),
-      expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas
+      // Remover expires para ambiente sandbox ou configurar corretamente
+      expires: false,
+      // Se quiser usar expiração, configure assim:
+      // expires: true,
+      // expiration_date_from: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutos no futuro
+      // expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas
+      
+      // Adicionar configurações para evitar problemas
+      binary_mode: false,
+      marketplace: "none",
+      marketplace_fee: 0,
+      additional_info: "",
+      notification_url: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/api/webhook/mercadopago`,
+      statement_descriptor: "LOJA_ONLINE"
     };
 
     console.log("⚙️ Configuração da preferência:", JSON.stringify(preferenceData, null, 2));
@@ -135,8 +150,19 @@ export async function POST(req: NextRequest) {
     const isTestToken = process.env.MERCADO_PAGO_ACCESS_TOKEN?.includes('APP_USR');
     console.log("🧪 Token de teste:", isTestToken);
 
+    // Criar um cliente com idempotency key única para cada request
+    const clientWithIdempotency = new MercadoPagoConfig({
+      accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN!,
+      options: {
+        timeout: 10000,
+        idempotencyKey: uniqueReference, // Usar referência única como idempotency key
+      }
+    });
+    
+    const preferenceWithIdempotency = new Preference(clientWithIdempotency);
+
     // Criar preferência no Mercado Pago
-    const response = await preference.create({ body: preferenceData });
+    const response = await preferenceWithIdempotency.create({ body: preferenceData });
     
     console.log("✅ Resposta do Mercado Pago:", {
       id: response.id,

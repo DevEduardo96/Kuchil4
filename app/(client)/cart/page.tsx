@@ -153,8 +153,13 @@ const CartPage = () => {
         quantity: getItemCount(product._id)
       }));
 
+      // Gerar um número de pedido único para cada tentativa
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substr(2, 9);
+      const uniqueOrderNumber = `ORDER-${timestamp}-${randomString}`;
+      
       const metadata: Metadata = {
-        orderNumber: `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        orderNumber: uniqueOrderNumber,
         customerName: userName,
         customerEmail: userEmail,
         clerkUserId: user.id,
