@@ -109,6 +109,7 @@ const CartPage = () => {
     setLoading(true);
     
     try {
+      // Validação do usuário
       if (!user) {
         toast.error("Você precisa estar logado para fazer checkout");
         return;
@@ -136,9 +137,21 @@ const CartPage = () => {
 
       if (invalidProducts.length > 0) {
         console.error("❌ Produtos com preços inválidos:", invalidProducts);
-        toast.error("Alguns produtos têm preços inválidos. Remova-os do carrinho.");
+        toast.error("Alguns produtos têm preços inválidos. Remova-os do carrinho e tente novamente.");
         return;
       }
+
+      // Preparar dados para a API
+      const itemsForApi = cartProducts.map(({ product }) => ({
+        product: {
+          _id: product._id,
+          name: product.name,
+          price: Number(product.price),
+          intro: product.intro || product.description,
+          category: product.category,
+        },
+        quantity: getItemCount(product._id)
+      }));
 
       const metadata: Metadata = {
         orderNumber: `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -148,9 +161,14 @@ const CartPage = () => {
       };
 
       console.log("🚀 Iniciando checkout PIX...");
-      console.log("📊 Dados a enviar:", { items: cartProducts, metadata });
+      console.log("📊 Dados a enviar:", { 
+        items: itemsForApi, 
+        metadata,
+        totalItems: itemsForApi.length,
+        totalValue: getTotalPrice()
+      });
 
-      // Mostrar loading mais específico
+      // Mostrar loading
       toast.loading("Criando checkout PIX...", { id: "pix-checkout" });
 
       const res = await fetch("/api/webhook/create-pix-checkout", {
@@ -159,86 +177,113 @@ const CartPage = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ 
-          items: cartProducts, 
+          items: itemsForApi, 
           metadata 
         }),
       });
 
       console.log("📡 Status da resposta:", res.status);
-      console.log("📋 Content-Type:", res.headers.get("content-type"));
+      console.log("📋 Headers:", {
+        contentType: res.headers.get("content-type"),
+        contentLength: res.headers.get("content-length")
+      });
 
-      // Primeiro pegar a resposta como texto para debug
+      // Pegar resposta como texto primeiro
       const responseText = await res.text();
-      console.log("📄 Resposta bruta:", responseText);
+      console.log("📄 Resposta bruta (primeiros 500 chars):", responseText.substring(0, 500));
 
-      // Verificar se recebeu HTML (erro 404/500)
-      if (responseText.startsWith('<!DOCTYPE') || responseText.startsWith('<html') || responseText.startsWith('<meta')) {
-        console.error("❌ Recebeu HTML em vez de JSON - Rota não encontrada ou erro no servidor");
-        toast.error("Erro: Rota da API não encontrada. Verifique se /api/webhook/create-pix-checkout existe.", { id: "pix-checkout" });
+      // Verificar se recebeu HTML (erro de rota)
+      if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+        console.error("❌ Recebeu HTML - Rota não encontrada");
+        toast.error("Erro: API de checkout não encontrada. Verifique a configuração do servidor.", { id: "pix-checkout" });
         return;
       }
 
-      // Tentar fazer parse do JSON
+      // Verificar se a resposta está vazia
+      if (!responseText.trim()) {
+        console.error("❌ Resposta vazia do servidor");
+        toast.error("Erro: Servidor retornou resposta vazia", { id: "pix-checkout" });
+        return;
+      }
+
+      // Fazer parse do JSON
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
         console.error("❌ Erro ao fazer parse do JSON:", parseError);
-        console.error("📄 Conteúdo recebido:", responseText.substring(0, 200));
-        toast.error("Erro: Resposta inválida do servidor", { id: "pix-checkout" });
+        console.error("📄 Conteúdo que causou erro:", responseText.substring(0, 200));
+        toast.error("Erro: Resposta do servidor em formato inválido", { id: "pix-checkout" });
         return;
       }
 
+      console.log("📊 Dados parseados:", data);
+
+      // Verificar se houve erro
       if (!res.ok) {
-        console.error("❌ Erro na resposta da API:", {
+        console.error("❌ Erro HTTP:", {
           status: res.status,
           statusText: res.statusText,
-          data: data
+          errorData: data
         });
         
-        // Verificar se o data tem conteúdo
         const errorMsg = data?.error || data?.details || data?.message || `Erro HTTP ${res.status}`;
-        const suggestion = data?.suggestion || '';
+        const suggestion = data?.suggestion ? ` - ${data.suggestion}` : '';
         
-        console.error("📋 Detalhes do erro:", errorMsg);
-        if (suggestion) console.error("💡 Sugestão:", suggestion);
+        console.error("📋 Mensagem de erro:", errorMsg);
+        console.error("💡 Sugestão:", suggestion);
         
-        toast.error(`Erro PIX: ${errorMsg}`, { id: "pix-checkout" });
+        toast.error(`${errorMsg}${suggestion}`, { id: "pix-checkout" });
         return;
       }
 
-      console.log("✅ Resposta sucesso PIX:", data);
+      // Verificar sucesso
+      if (!data?.success) {
+        console.error("❌ Resposta não indica sucesso:", data);
+        toast.error("Erro: Falha na criação do pagamento", { id: "pix-checkout" });
+        return;
+      }
 
-      // Verificar se recebeu os dados necessários
+      // Verificar URLs de checkout
       if (!data?.init_point && !data?.sandbox_init_point) {
-        console.error("❌ URLs de checkout não encontradas na resposta:", data);
-        toast.error("Erro: URL de checkout não recebida", { id: "pix-checkout" });
+        console.error("❌ URLs de checkout não encontradas:", data);
+        toast.error("Erro: URLs de checkout não disponíveis", { id: "pix-checkout" });
         return;
       }
 
-      // Determinar qual URL usar (sandbox para desenvolvimento, init_point para produção)
-      const checkoutUrl = process.env.NODE_ENV === 'development' 
-        ? (data.sandbox_init_point || data.init_point)
-        : (data.init_point || data.sandbox_init_point);
+      // Selecionar URL apropriada
+      const checkoutUrl = data.sandbox_init_point || data.init_point;
 
-      if (checkoutUrl) {
-        console.log("✅ Redirecionando para checkout PIX:", checkoutUrl);
-        toast.success("Redirecionando para o checkout PIX...", { id: "pix-checkout" });
-        
-        // Pequeno delay para mostrar o toast de sucesso
-        setTimeout(() => {
-          window.location.href = checkoutUrl;
-        }, 1000);
-      } else {
-        console.error("❌ Nenhuma URL de checkout válida encontrada");
+      if (!checkoutUrl) {
+        console.error("❌ Nenhuma URL válida encontrada");
         toast.error("Erro: URL de checkout inválida", { id: "pix-checkout" });
+        return;
       }
+
+      console.log("✅ Checkout criado com sucesso!");
+      console.log("🔗 URL de checkout:", checkoutUrl);
+      console.log("📝 ID da preferência:", data.preference_id);
+
+      toast.success("Redirecionando para o checkout PIX...", { id: "pix-checkout" });
+      
+      // Aguardar um momento para mostrar a mensagem
+      setTimeout(() => {
+        console.log("🚀 Redirecionando para:", checkoutUrl);
+        window.location.href = checkoutUrl;
+      }, 1500);
 
     } catch (error) {
-      console.error("❌ Erro criando checkout Pix:", error);
+      console.error("❌ Erro geral no checkout PIX:", error);
       
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      toast.error(`Erro ao processar checkout PIX: ${errorMessage}`, { id: "pix-checkout" });
+      let errorMessage = "Erro desconhecido";
+      
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        errorMessage = "Erro de conexão com o servidor";
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(`Erro no checkout PIX: ${errorMessage}`, { id: "pix-checkout" });
       
     } finally {
       setLoading(false);
