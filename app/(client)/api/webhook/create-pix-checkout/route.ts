@@ -72,10 +72,6 @@ export async function POST(req: NextRequest) {
     // Configuração do cliente Mercado Pago
     const client = new MercadoPagoConfig({
       accessToken: process.env.MP_ACCESS_TOKEN,
-      options: {
-        timeout: 5000,
-        idempotencyKey: metadata.orderNumber
-      }
     });
 
     const preference = new Preference(client);
@@ -120,6 +116,10 @@ export async function POST(req: NextRequest) {
           { id: "debit_card" },
           { id: "credit_card" }
         ],
+        excluded_payment_methods: [
+          { id: "master" },
+          { id: "visa" }
+        ],
         default_payment_method_id: "pix",
         installments: 1
       },
@@ -131,14 +131,8 @@ export async function POST(req: NextRequest) {
       auto_return: "approved" as const,
       external_reference: metadata.orderNumber,
       notification_url: `${baseUrl}/api/webhook/mercadopago`,
-      metadata: {
-        ...metadata,
-        integration: "pix_checkout",
-        timestamp: new Date().toISOString()
-      },
-      expires: true,
-      expiration_date_from: new Date().toISOString(),
-      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
+      expires: false,
+      statement_descriptor: "PIX Checkout"
     };
 
     console.log("🔧 Criando preferência:", JSON.stringify(preferenceData, null, 2));
@@ -162,25 +156,31 @@ export async function POST(req: NextRequest) {
       expires_at: preferenceData.expiration_date_to
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Erro detalhado:", error);
     
     // Tratamento específico do erro
     let errorMessage = "Erro desconhecido";
     let statusCode = 500;
     
-    if (error instanceof Error) {
+    if (error?.message) {
       errorMessage = error.message;
       console.error("📝 Mensagem:", error.message);
       console.error("📋 Stack:", error.stack);
+    }
+
+    // Verificar se é erro do Mercado Pago
+    if (error?.cause || error?.response) {
+      console.error("🔍 Erro do Mercado Pago:", error.cause || error.response);
       
-      // Tratar erros específicos do Mercado Pago
-      if (errorMessage.includes("401")) {
-        errorMessage = "Token de acesso inválido";
+      if (error?.cause?.status === 401 || error?.response?.status === 401) {
+        errorMessage = "Token de acesso do Mercado Pago inválido";
         statusCode = 401;
-      } else if (errorMessage.includes("400")) {
+      } else if (error?.cause?.status === 400 || error?.response?.status === 400) {
         errorMessage = "Dados inválidos enviados ao Mercado Pago";
         statusCode = 400;
+      } else if (error?.cause?.message) {
+        errorMessage = error.cause.message;
       }
     }
 
@@ -189,7 +189,11 @@ export async function POST(req: NextRequest) {
         error: "Erro criando preferência PIX", 
         details: errorMessage,
         timestamp: new Date().toISOString(),
-        suggestion: "Verifique as credenciais do Mercado Pago e os dados enviados"
+        suggestion: "Verifique as credenciais do Mercado Pago e os dados enviados",
+        debug: process.env.NODE_ENV === 'development' ? {
+          originalError: error?.message,
+          mpError: error?.cause || error?.response
+        } : undefined
       }, 
       { status: statusCode }
     );

@@ -1,55 +1,26 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { backendClient } from "@/sanity/lib/backendClient";
 
 export async function POST(req: NextRequest) {
-  console.log("🔔 Webhook Mercado Pago recebido!");
-
   try {
     const body = await req.json();
-    console.log("📦 Dados do webhook:", JSON.stringify(body, null, 2));
+    console.log("🔔 Webhook Mercado Pago recebido:", body);
 
     // Verificar se é uma notificação de pagamento
     if (body.type === "payment") {
-      const paymentId = body.data?.id;
-      
-      if (!paymentId) {
-        console.log("❌ ID do pagamento não encontrado");
-        return NextResponse.json({ status: "error", message: "Payment ID missing" });
-      }
+      console.log("💰 Notificação de pagamento:", body.data.id);
 
-      console.log(`💰 Processando pagamento: ${paymentId}`);
+      // Aqui você pode fazer a verificação do pagamento no Mercado Pago
+      // e atualizar o status do pedido no Sanity
 
-      // Aqui você pode consultar o status do pagamento via API do MP
-      // e atualizar o pedido no Sanity conforme necessário
-      
-      // Por exemplo, se o pagamento foi aprovado:
-      if (body.action === "payment.updated") {
-        console.log("✅ Pagamento atualizado - processando...");
-        
-        // Buscar detalhes do pagamento usando a API do Mercado Pago
-        // const payment = await getPaymentDetails(paymentId);
-        
-        // Atualizar status do pedido no Sanity se necessário
-        // await updateOrderStatus(payment.external_reference, payment.status);
-      }
+      return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json({ 
-      status: "ok", 
-      message: "Webhook processed successfully",
-      timestamp: new Date().toISOString()
-    });
-
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("❌ Erro processando webhook:", error);
-    
+    console.error("❌ Erro no webhook Mercado Pago:", error);
     return NextResponse.json(
-      { 
-        status: "error", 
-        message: "Webhook processing failed",
-        error: error instanceof Error ? error.message : "Unknown error"
-      }, 
+      { error: "Erro processando webhook" },
       { status: 500 }
     );
   }
@@ -57,7 +28,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    message: "Webhook Mercado Pago endpoint ativo",
+    message: "Webhook Mercado Pago funcionando",
     timestamp: new Date().toISOString()
   });
 }
