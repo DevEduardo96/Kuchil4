@@ -16,6 +16,8 @@ const preference = new Preference(client);
 export async function POST(req: NextRequest) {
   try {
     console.log("🚀 Iniciando criação de checkout PIX...");
+    console.log("🔑 Token presente:", !!process.env.MERCADO_PAGO_ACCESS_TOKEN);
+    console.log("🔑 Primeiros caracteres do token:", process.env.MERCADO_PAGO_ACCESS_TOKEN?.substring(0, 20) + "...");
 
     // Validar token de acesso
     if (!process.env.MERCADO_PAGO_ACCESS_TOKEN) {
@@ -109,13 +111,13 @@ export async function POST(req: NextRequest) {
         installments: 1
       },
       back_urls: {
-        success: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id=${metadata.orderNumber}`,
-        failure: `${process.env.NEXT_PUBLIC_BASE_URL}/cart?error=payment_failed`,
-        pending: `${process.env.NEXT_PUBLIC_BASE_URL}/cart?status=pending`
+        success: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/success?session_id=${metadata.orderNumber}`,
+        failure: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/cart?error=payment_failed`,
+        pending: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/cart?status=pending`
       },
       auto_return: "approved",
       external_reference: metadata.orderNumber,
-      notification_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook/mercadopago`,
+      notification_url: `https://8b99d11c-d036-4d1d-894b-a7b289a7dcc7-00-3unhqzfstcjkd.riker.replit.dev/api/webhook/mercadopago`,
       metadata: {
         order_number: metadata.orderNumber,
         customer_email: metadata.customerEmail,
@@ -124,10 +126,14 @@ export async function POST(req: NextRequest) {
       },
       expires: true,
       expiration_date_from: new Date().toISOString(),
-      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
+      expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas
     };
 
     console.log("⚙️ Configuração da preferência:", JSON.stringify(preferenceData, null, 2));
+
+    // Verificar se é token de sandbox (para desenvolvimento)
+    const isTestToken = process.env.MERCADO_PAGO_ACCESS_TOKEN?.includes('APP_USR');
+    console.log("🧪 Token de teste:", isTestToken);
 
     // Criar preferência no Mercado Pago
     const response = await preference.create({ body: preferenceData });

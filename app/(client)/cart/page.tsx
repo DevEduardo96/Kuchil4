@@ -264,13 +264,23 @@ const CartPage = () => {
       console.log("🔗 URL de checkout:", checkoutUrl);
       console.log("📝 ID da preferência:", data.preference_id);
 
-      toast.success("Redirecionando para o checkout PIX...", { id: "pix-checkout" });
+      console.log("✅ Checkout criado com sucesso!");
+      console.log("🔗 URL de checkout:", checkoutUrl);
       
-      // Aguardar um momento para mostrar a mensagem
-      setTimeout(() => {
-        console.log("🚀 Redirecionando para:", checkoutUrl);
-        window.location.href = checkoutUrl;
-      }, 1500);
+      toast.success("Abrindo checkout PIX...", { id: "pix-checkout" });
+      
+      // Tentar abrir em nova aba primeiro, depois redirecionar se necessário
+      const newWindow = window.open(checkoutUrl, '_blank');
+      
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        // Se popup foi bloqueado, redirecionar na mesma aba
+        console.log("🚀 Popup bloqueado, redirecionando na mesma aba...");
+        setTimeout(() => {
+          window.location.href = checkoutUrl;
+        }, 1000);
+      } else {
+        console.log("🚀 Checkout aberto em nova aba");
+      }
 
     } catch (error) {
       console.error("❌ Erro geral no checkout PIX:", error);
