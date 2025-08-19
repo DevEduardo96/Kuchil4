@@ -29,6 +29,7 @@
     "cmdk": "^1.0.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.468.0",
+    "mercadopago": "^2.8.0",
     "motion": "^11.14.4",
     "next": "15.1.0",
     "next-sanity": "^10.0.12",

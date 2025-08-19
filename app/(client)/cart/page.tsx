@@ -22,6 +22,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import paypalLogo from "@/images/paypalLogo.png";
+import pixLogo from "@/images/pixLogo.png"; // 🔹 Adicione um logo Pix em /images
 import {
   createCheckoutSession,
   Metadata,
@@ -75,6 +76,34 @@ const CartPage = () => {
       }
     } catch (error) {
       console.error("Error creating checkout session:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔹 Checkout Pix (Mercado Pago)
+  const handlePixCheckout = async () => {
+    setLoading(true);
+    try {
+      const metadata: Metadata = {
+        orderNumber: crypto.randomUUID(),
+        customerName: user?.fullName ?? "Unknown",
+        customerEmail: user?.emailAddresses[0]?.emailAddress ?? "Unknown",
+        clerkUserId: user!.id,
+      };
+
+      const res = await fetch("/api/create-pix-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: cartProducts, metadata }),
+      });
+
+      const data = await res.json();
+      if (data?.init_point) {
+        window.location.href = data.init_point; // 🔹 Redireciona para checkout Pix
+      }
+    } catch (error) {
+      console.error("Erro criando checkout Pix:", error);
     } finally {
       setLoading(false);
     }
@@ -184,6 +213,7 @@ const CartPage = () => {
                     </Button>
                   </div>
                 </div>
+
                 {/* summary */}
                 <div className="lg:col-span-1">
                   <div className="hidden md:inline-block w-full bg-white p-6 rounded-lg border">
@@ -209,6 +239,8 @@ const CartPage = () => {
                           className="text-lg font-bold text-black"
                         />
                       </div>
+
+                      {/* 🔹 Stripe Checkout */}
                       <Button
                         disabled={loading}
                         onClick={handleCheckout}
@@ -217,6 +249,8 @@ const CartPage = () => {
                       >
                         Proceed to Checkout
                       </Button>
+
+                      {/* 🔹 PayPal */}
                       <Link
                         href={"/"}
                         className="flex items-center justify-center py-2 border border-darkColor/50 rounded-full hover:border-darkColor hover:bg-darkColor/5 hoverEffect"
@@ -227,9 +261,23 @@ const CartPage = () => {
                           className="w-20"
                         />
                       </Link>
+
+                      {/* 🔹 Pix Mercado Pago */}
+                      <button
+                        onClick={handlePixCheckout}
+                        disabled={loading}
+                        className="flex items-center justify-center w-full py-2 border border-green-600 rounded-full hover:bg-green-50 hover:border-green-700 hoverEffect"
+                      >
+                        <Image
+                          src={pixLogo}
+                          alt="pixLogo"
+                          className="w-20"
+                        />
+                      </button>
                     </div>
                   </div>
                 </div>
+
                 {/* Order summary for mobile view */}
                 <div className="md:hidden fixed bottom-0 left-0 w-full bg-white pt-2">
                   <div className="p-4 rounded-lg border mx-4">
@@ -255,6 +303,8 @@ const CartPage = () => {
                           className="text-lg font-bold text-black"
                         />
                       </div>
+
+                      {/* Stripe */}
                       <Button
                         onClick={handleCheckout}
                         className="w-full rounded-full font-semibold tracking-wide"
@@ -262,6 +312,8 @@ const CartPage = () => {
                       >
                         Proceed to Checkout
                       </Button>
+
+                      {/* PayPal */}
                       <Link
                         href={"/"}
                         className="flex items-center justify-center py-2 border border-darkColor/50 rounded-full hover:border-darkColor hover:bg-darkColor/5 hoverEffect"
@@ -272,6 +324,19 @@ const CartPage = () => {
                           className="w-20"
                         />
                       </Link>
+
+                      {/* Pix */}
+                      <button
+                        onClick={handlePixCheckout}
+                        disabled={loading}
+                        className="flex items-center justify-center w-full py-2 border border-green-600 rounded-full hover:bg-green-50 hover:border-green-700 hoverEffect"
+                      >
+                        <Image
+                          src={pixLogo}
+                          alt="pixLogo"
+                          className="w-20"
+                        />
+                      </button>
                     </div>
                   </div>
                 </div>
