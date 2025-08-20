@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
 import Container from './Container';
-import SearchBar from './SearchBar';
+
 import CartIcon from './CartIcon';
 import Logo from './Logo';
 import { Menu, X } from 'lucide-react';
@@ -45,7 +45,7 @@ const Header = () => {
             
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center space-x-4">
-              <SearchBar />
+             
               <CartIcon />
               {/* Placeholder para evitar layout shift */}
               <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
@@ -103,7 +103,7 @@ const Header = () => {
               </nav>
               
               <div className="flex items-center space-x-4">
-                <SearchBar />
+            
                 <CartIcon />
                 
                 {/* Componentes do Clerk */}
@@ -154,7 +154,7 @@ const Header = () => {
 
           {/* Mobile Search Bar */}
           <div className="md:hidden pb-3 border-t border-gray-100 pt-3">
-            <SearchBar />
+        
           </div>
         </Container>
       </header>
