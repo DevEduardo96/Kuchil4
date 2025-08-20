@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
         address: metadata.customerAddress ? {
           zip_code: metadata.customerAddress.cep?.replace(/\D/g, ''),
           street_name: metadata.customerAddress.rua,
-          street_number: parseInt(metadata.customerAddress.numero) || 0,
+          street_number: metadata.customerAddress.numero || "0",
           city: metadata.customerAddress.cidade,
           state: metadata.customerAddress.estado,
           neighborhood: metadata.customerAddress.bairro,
