@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState } from 'react';
 import { Button } from './ui/button';
@@ -17,6 +16,7 @@ export interface CheckoutFormData {
   bairro: string;
   cidade: string;
   estado: string;
+  pais: string;
 }
 
 interface CheckoutFormProps {
@@ -38,6 +38,7 @@ export default function CheckoutForm({ onSubmit, onCancel, loading = false, init
     bairro: '',
     cidade: '',
     estado: '',
+    pais: 'Brasil',
     ...initialData
   });
 
@@ -65,6 +66,7 @@ export default function CheckoutForm({ onSubmit, onCancel, loading = false, init
     if (!formData.bairro.trim()) newErrors.bairro = 'Bairro é obrigatório';
     if (!formData.cidade.trim()) newErrors.cidade = 'Cidade é obrigatória';
     if (!formData.estado.trim()) newErrors.estado = 'Estado é obrigatório';
+    if (!formData.pais.trim()) newErrors.pais = 'País é obrigatório';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -101,7 +103,7 @@ export default function CheckoutForm({ onSubmit, onCancel, loading = false, init
           {/* Dados Pessoais */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Dados Pessoais</h3>
-            
+
             <div>
               <Label htmlFor="nome">Nome Completo *</Label>
               <Input
@@ -144,7 +146,7 @@ export default function CheckoutForm({ onSubmit, onCancel, loading = false, init
           {/* Endereço */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Endereço</h3>
-            
+
             <div>
               <Label htmlFor="cep">CEP *</Label>
               <Input
@@ -194,7 +196,7 @@ export default function CheckoutForm({ onSubmit, onCancel, loading = false, init
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="bairro">Bairro *</Label>
                 <Input
@@ -218,19 +220,31 @@ export default function CheckoutForm({ onSubmit, onCancel, loading = false, init
                 />
                 {errors.cidade && <span className="text-red-500 text-sm">{errors.cidade}</span>}
               </div>
+
+              <div>
+                <Label htmlFor="estado">Estado *</Label>
+                <Input
+                  id="estado"
+                  value={formData.estado}
+                  onChange={(e) => handleInputChange('estado', e.target.value.toUpperCase())}
+                  placeholder="SP"
+                  maxLength={2}
+                  className={errors.estado ? 'border-red-500' : ''}
+                />
+                {errors.estado && <span className="text-red-500 text-sm">{errors.estado}</span>}
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="estado">Estado *</Label>
+              <Label htmlFor="pais">País *</Label>
               <Input
-                id="estado"
-                value={formData.estado}
-                onChange={(e) => handleInputChange('estado', e.target.value.toUpperCase())}
-                placeholder="SP"
-                maxLength={2}
-                className={errors.estado ? 'border-red-500' : ''}
+                id="pais"
+                value={formData.pais}
+                onChange={(e) => handleInputChange('pais', e.target.value)}
+                placeholder="Brasil"
+                className={errors.pais ? 'border-red-500' : ''}
               />
-              {errors.estado && <span className="text-red-500 text-sm">{errors.estado}</span>}
+              {errors.pais && <span className="text-red-500 text-sm">{errors.pais}</span>}
             </div>
           </div>
 
