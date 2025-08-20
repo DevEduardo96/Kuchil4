@@ -9,6 +9,15 @@ export interface Metadata {
   customerName: string;
   customerEmail: string;
   clerkUserId: string;
+  customerAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+    number: string;
+    complement?: string;
+  };
 }
 interface CartItems {
   products: CartItem["product"];

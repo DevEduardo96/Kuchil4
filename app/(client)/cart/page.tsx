@@ -29,6 +29,9 @@ import {
 } from "@/actions/createCheckoutSession";
 import CheckoutForm, { CheckoutFormData } from "@/components/CheckoutForm";
 
+// Extend CheckoutFormData to include 'pais'
+type ExtendedCheckoutFormData = CheckoutFormData & { pais: string };
+
 
 const CartPage = () => {
   const [isClient, setIsClient] = useState(false);
@@ -108,7 +111,7 @@ const CartPage = () => {
   };
 
   // Checkout PIX - Mercado Pago
-  const handlePixCheckout = async (formData: CheckoutFormData) => {
+  const handlePixCheckout = async (formData: ExtendedCheckoutFormData) => {
     setLoading(true);
 
     try {
