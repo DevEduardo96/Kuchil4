@@ -27,10 +27,13 @@ import {
   createCheckoutSession,
   Metadata,
 } from "@/actions/createCheckoutSession";
+import CheckoutForm, { CheckoutFormData } from "@/components/CheckoutForm";
+
 
 const CartPage = () => {
   const [isClient, setIsClient] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const { isSignedIn } = useAuth();
   const {
     deleteCartProduct,
@@ -105,9 +108,9 @@ const CartPage = () => {
   };
 
   // Checkout PIX - Mercado Pago
-  const handlePixCheckout = async () => {
+  const handlePixCheckout = async (formData: CheckoutFormData) => {
     setLoading(true);
-    
+
     try {
       // Validação do usuário
       if (!user) {
@@ -131,7 +134,7 @@ const CartPage = () => {
       }
 
       // Validar se todos os produtos têm preços válidos
-      const invalidProducts = cartProducts.filter(({ product }) => 
+      const invalidProducts = cartProducts.filter(({ product }) =>
         !product.price || isNaN(Number(product.price)) || Number(product.price) <= 0
       );
 
@@ -157,17 +160,27 @@ const CartPage = () => {
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substr(2, 9);
       const uniqueOrderNumber = `ORDER-${timestamp}-${randomString}`;
-      
+
       const metadata: Metadata = {
         orderNumber: uniqueOrderNumber,
         customerName: userName,
         customerEmail: userEmail,
         clerkUserId: user.id,
+        // Adicionar dados do formulário ao metadata
+        customerAddress: {
+          street: formData.rua,
+          city: formData.cidade,
+          state: formData.estado,
+          zipCode: formData.cep,
+          country: formData.pais,
+          number: formData.numero,
+          complement: formData.complemento
+        }
       };
 
       console.log("🚀 Iniciando checkout PIX...");
-      console.log("📊 Dados a enviar:", { 
-        items: itemsForApi, 
+      console.log("📊 Dados a enviar:", {
+        items: itemsForApi,
         metadata,
         totalItems: itemsForApi.length,
         totalValue: getTotalPrice()
@@ -178,12 +191,12 @@ const CartPage = () => {
 
       const res = await fetch("/api/webhook/create-pix-checkout", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
-          items: itemsForApi, 
-          metadata 
+        body: JSON.stringify({
+          items: itemsForApi,
+          metadata
         }),
       });
 
@@ -231,13 +244,13 @@ const CartPage = () => {
           statusText: res.statusText,
           errorData: data
         });
-        
+
         const errorMsg = data?.error || data?.details || data?.message || `Erro HTTP ${res.status}`;
         const suggestion = data?.suggestion ? ` - ${data.suggestion}` : '';
-        
+
         console.error("📋 Mensagem de erro:", errorMsg);
         console.error("💡 Sugestão:", suggestion);
-        
+
         toast.error(`${errorMsg}${suggestion}`, { id: "pix-checkout" });
         return;
       }
@@ -271,12 +284,12 @@ const CartPage = () => {
 
       console.log("✅ Checkout criado com sucesso!");
       console.log("🔗 URL de checkout:", checkoutUrl);
-      
+
       toast.success("Abrindo checkout PIX...", { id: "pix-checkout" });
-      
+
       // Tentar abrir em nova aba primeiro, depois redirecionar se necessário
       const newWindow = window.open(checkoutUrl, '_blank');
-      
+
       if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
         // Se popup foi bloqueado, redirecionar na mesma aba
         console.log("🚀 Popup bloqueado, redirecionando na mesma aba...");
@@ -289,21 +302,47 @@ const CartPage = () => {
 
     } catch (error) {
       console.error("❌ Erro geral no checkout PIX:", error);
-      
+
       let errorMessage = "Erro desconhecido";
-      
+
       if (error instanceof TypeError && error.message.includes("fetch")) {
         errorMessage = "Erro de conexão com o servidor";
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       toast.error(`Erro no checkout PIX: ${errorMessage}`, { id: "pix-checkout" });
-      
     } finally {
       setLoading(false);
     }
   };
+
+  // Cancelar formulário de checkout
+  const handleCancelCheckout = () => {
+    setShowCheckoutForm(false);
+    setLoading(false);
+  };
+
+  // Se o formulário de checkout estiver sendo exibido
+  if (showCheckoutForm) {
+    return (
+      <Container className="py-10">
+        <ClerkLoaded>
+          <SignedIn>
+            <CheckoutForm
+              onSubmit={handlePixCheckout}
+              onCancel={handleCancelCheckout}
+              loading={loading}
+              initialData={{
+                nome: user?.fullName || '',
+                email: user?.emailAddresses[0]?.emailAddress || ''
+              }}
+            />
+          </SignedIn>
+        </ClerkLoaded>
+      </Container>
+    );
+  }
 
   return (
     <div className="bg-gray-50 pb-52 md:pb-10">
@@ -320,10 +359,10 @@ const CartPage = () => {
                 <div className="lg:col-span-2 rounded-lg">
                   <div className="border bg-white rounded-md">
                     {cartProducts?.map(({ product }) => {
-                      const itemCount = getItemCount(product?._id);
+                      const itemCount = getItemCount(product._id);
                       return (
                         <div
-                          key={product?._id}
+                          key={product._id}
                           className="border-b p-2.5 last:border-b-0 flex items-center justify-between gap-5"
                         >
                           <div className="flex flex-1 items-center gap-2 h-36 md:h-44">
@@ -377,7 +416,7 @@ const CartPage = () => {
                                     <TooltipTrigger>
                                       <Trash
                                         onClick={() =>
-                                          handleDeleteProduct(product?._id)
+                                          handleDeleteProduct(product._id)
                                         }
                                         className="w-4 h-4 md:w-5 md:h-5 hover:text-red-600 hoverEffect"
                                       />
@@ -468,7 +507,7 @@ const CartPage = () => {
 
                       {/* Pix Mercado Pago */}
                       <button
-                        onClick={handlePixCheckout}
+                        onClick={() => setShowCheckoutForm(true)}
                         disabled={loading}
                         className="flex items-center justify-center w-full py-2 border border-green-600 rounded-full hover:bg-green-50 hover:border-green-700 hoverEffect disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -536,7 +575,7 @@ const CartPage = () => {
 
                       {/* Pix */}
                       <button
-                        onClick={handlePixCheckout}
+                        onClick={() => setShowCheckoutForm(true)}
                         disabled={loading}
                         className="flex items-center justify-center w-full py-2 border border-green-600 rounded-full hover:bg-green-50 hover:border-green-700 hoverEffect disabled:opacity-50 disabled:cursor-not-allowed"
                       >

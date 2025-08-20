@@ -52,6 +52,25 @@ export const orderType = defineType({
       validation: (Rule) => Rule.required().email(),
     }),
     defineField({
+      name: "customerPhone",
+      title: "Customer Phone",
+      type: "string",
+    }),
+    defineField({
+      name: "customerAddress",
+      title: "Customer Address",
+      type: "object",
+      fields: [
+        defineField({ name: "cep", title: "CEP", type: "string" }),
+        defineField({ name: "rua", title: "Street", type: "string" }),
+        defineField({ name: "numero", title: "Number", type: "string" }),
+        defineField({ name: "complemento", title: "Complement", type: "string" }),
+        defineField({ name: "bairro", title: "Neighborhood", type: "string" }),
+        defineField({ name: "cidade", title: "City", type: "string" }),
+        defineField({ name: "estado", title: "State", type: "string" }),
+      ],
+    }),
+    defineField({
       name: "stripePaymentIntentId",
       title: "Stripe Payment Intent ID",
       type: "string",
@@ -149,6 +168,24 @@ export const orderType = defineType({
       title: "Order Date",
       type: "datetime",
       validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: "paymentMethod",
+      title: "Payment Method",
+      type: "string",
+    }),
+    defineField({
+      name: "mercadoPagoData",
+      title: "MercadoPago Data",
+      type: "object",
+      fields: [
+        defineField({ name: "payment_id", title: "Payment ID", type: "string" }),
+        defineField({ name: "status", title: "Status", type: "string" }),
+        defineField({ name: "status_detail", title: "Status Detail", type: "string" }),
+        defineField({ name: "payment_type_id", title: "Payment Type ID", type: "string" }),
+        defineField({ name: "date_approved", title: "Date Approved", type: "string" }),
+        defineField({ name: "transaction_amount", title: "Transaction Amount", type: "number" }),
+      ],
     }),
   ],
   preview: {

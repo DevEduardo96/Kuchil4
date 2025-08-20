@@ -71,7 +71,23 @@ export async function POST(req: NextRequest) {
 
     const preferenceData = {
       items: mercadoPagoItems,
-      payer: { name: metadata.customerName, email: metadata.customerEmail },
+      payer: { 
+        name: metadata.customerName, 
+        email: metadata.customerEmail,
+        phone: metadata.customerPhone ? {
+          area_code: metadata.customerPhone.replace(/\D/g, '').substring(0, 2),
+          number: metadata.customerPhone.replace(/\D/g, '').substring(2)
+        } : undefined,
+        address: metadata.customerAddress ? {
+          zip_code: metadata.customerAddress.cep?.replace(/\D/g, ''),
+          street_name: metadata.customerAddress.rua,
+          street_number: parseInt(metadata.customerAddress.numero) || 0,
+          city: metadata.customerAddress.cidade,
+          state: metadata.customerAddress.estado,
+          neighborhood: metadata.customerAddress.bairro,
+          complement: metadata.customerAddress.complemento
+        } : undefined
+      },
       payment_methods: {
         excluded_payment_types: [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }],
         excluded_payment_methods: [],
@@ -90,6 +106,8 @@ export async function POST(req: NextRequest) {
         order_number: metadata.orderNumber,
         customer_email: metadata.customerEmail,
         customer_name: metadata.customerName,
+        customer_phone: metadata.customerPhone,
+        customer_address: metadata.customerAddress ? JSON.stringify(metadata.customerAddress) : undefined,
         clerk_user_id: metadata.clerkUserId,
         unique_reference: uniqueReference
       },

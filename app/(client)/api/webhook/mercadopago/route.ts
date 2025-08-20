@@ -50,8 +50,10 @@ export async function POST(req: NextRequest) {
         _type: "order",
         orderNumber: paymentData.external_reference,
         mercadoPagoPaymentId: paymentData.id?.toString(),
-        customerName: paymentData.additional_info?.payer?.first_name || "Cliente",
-        email: paymentData.payer?.email || "",
+        customerName: paymentData.metadata?.customer_name || paymentData.additional_info?.payer?.first_name || "Cliente",
+        email: paymentData.metadata?.customer_email || paymentData.payer?.email || "",
+        customerPhone: paymentData.metadata?.customer_phone || "",
+        customerAddress: paymentData.metadata?.customer_address ? JSON.parse(paymentData.metadata.customer_address) : null,
         clerkUserId: paymentData.metadata?.clerk_user_id || "",
         currency: paymentData.currency_id || "BRL",
         totalPrice: paymentData.transaction_amount || 0,
@@ -65,7 +67,6 @@ export async function POST(req: NextRequest) {
           payment_type_id: paymentData.payment_type_id,
           date_approved: paymentData.date_approved,
           transaction_amount: paymentData.transaction_amount,
-          // net_received_amount: paymentData.net_received_amount, // Removed because property does not exist
         }
       };
 
