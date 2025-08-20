@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { urlFor } from "@/sanity/lib/image";
 import useCartStore from "@/store";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth, useUser, ClerkLoaded, SignedIn } from "@clerk/nextjs";
 import { Heart, ShoppingBag, Trash } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
